@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/usr/bin/envruby
 
 # file: recordx-xslt.rb
 
@@ -23,20 +23,15 @@ HEADER
     a_element = @schema.split('/').map{|x| x[/\w+/]}
 
     a_html = @xslt_schema.split('/').map do |x|
+     
+      name = x[/\w+/]
+      children = ($')[/^[\(\[]([^\)\]]+)[\)\]]$/,1]
+      list = children.split(',').map {|y| y.split(':') } if children
 
-      result = x.match(/(\w+)(?:[\(\[]([^\]\)]+)[\]\)])?(.*)/)
-      name, children, remaining = result.captures if result
-
-      #children = ($')[/^[\(\[]([^\)\]]+)[\)\]]$/,1]
-
-      list = children.split(',').map {|y| y.split(':',2)} if children        
-
-      #[name, list, remaining]
       [name, list]
     end
 
     a = a_element.zip(a_html).map.with_index do |a,i|
-
       out = []
       tag = a.shift
       field = i > 0 ? 'records/' + tag : tag
@@ -50,7 +45,7 @@ HEADER
         out << "  <%s>\n" % a.first
         out << "    <xsl:apply-templates select='summary'/>\n"
         out << "    <xsl:apply-templates select='records'/>\n"
-        out << "  </%s>\n" % a.first
+        out << "  <\\%s>\n" % a.first
         out << "</xsl:template>\n\n"
         out << "<xsl:template match='%s/summary'>\n" % [tag]
         out << "</xsl:template>\n\n"
@@ -69,17 +64,14 @@ HEADER
     out = []
 
     unless a.first.is_a? Array then
-      
       tag = a.shift
-
       out << indent + "<%s>\n" % tag
       out << indent + "  <xsl:apply-templates select='summary'/>\n"
-      out << indent + "</%s>\n" % tag
+      out << indent + "<\\%s>\n" % tag
       out << "</xsl:template>\n\n"
       out << "<xsl:template match='%s/summary'>\n" % [prev_tag]
 
       a.flatten!(1)
-      
       if a.last.is_a? Array then
         out << scan_e(a, tag, indent + '  ') 
       else
@@ -87,25 +79,8 @@ HEADER
       end
 
     else
-      a.map do |target,src|
-
-        if src then
-          
-          start_tag = target.gsub(/\s*\{[^\}]+\}/) do |attr| 
-
-            ' ' + attr.scan(/(\w+[:=]\s*(?:\w+|["'][^"']+["'])),?\s*/)\
-            .map {|x| x.first.split(/\s*[:=]\s*/) }\
-            .map {|attr, val| "%s='%s'" % [attr,val.gsub(/^["']|["']$/,'')]}\
-            .join(', ')
-          end
-          
-          end_tag = target.gsub(/\s*{.*/,'')           
-
-          out << indent + "<%s><xsl:value-of select='%s'/></%s>\n" % 
-                                                [start_tag,src,end_tag]
-        else
-          out << indent + "<%s></%s>\n" % ([target] * 2)
-        end
+      a.map do |x| 
+        out << indent + "<%s><xsl:value-of select='%s'/></%s>\n" % [x[0],x[-1],x[0]]
       end
     end
 
