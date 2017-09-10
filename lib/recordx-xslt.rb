@@ -70,7 +70,8 @@ HEADER
 
       head, body = row.split('[',2)
       fields = body[/.*(?=\])/].split(/ *, */)
-      "%s[%s]" % [head + '2', fields.map{|x| x + '2'}.join(', ')]
+      "%s[%s]" % [head + '2', fields\
+                  .map{|x| [x + '2', x].join(':')}.join(', ')]
       
     end.join('/')    
     
