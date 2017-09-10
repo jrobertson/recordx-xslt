@@ -21,17 +21,17 @@ header =<<HEADER
 HEADER
 
     a_element = @schema.split('/').map{|x| x[/\w+/]}
+    
+    @xslt_schema = build_xslt_schema(@schema) if @xslt_schema.empty?
 
     a_html = @xslt_schema.split('/').map do |x|
 
       result = x.match(/(\w+)(?:[\(\[]([^\]\)]+)[\]\)])?(.*)/)
       name, children, remaining = result.captures if result
 
-      #children = ($')[/^[\(\[]([^\)\]]+)[\)\]]$/,1]
 
-      list = children.split(',').map {|y| y.split(':',2)} if children        
+      list = children.split(/ *, */).map {|y| y.split(':',2)} if children        
 
-      #[name, list, remaining]
       [name, list]
     end
 
@@ -63,6 +63,18 @@ HEADER
   end
 
   private
+  
+  def build_xslt_schema(schema)
+
+    schema.split('/').map do |row|
+
+      head, body = row.split('[',2)
+      fields = body[/.*(?=\])/].split(/ *, */)
+      "%s[%s]" % [head + '2', fields.map{|x| x + '2'}.join(', ')]
+      
+    end.join('/')    
+    
+  end
 
   def scan_e(a, prev_tag='', indent='  ')
 
