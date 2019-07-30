@@ -32,7 +32,7 @@ HEADER
 
     a_html = @xslt_schema.split('/').map do |x|
 
-      result = x.match(/(\w+)(?:[\(\[]([^\]\)]+)[\]\)])?(.*)/)
+      result = x.match(/([\w\>]+)(?:[\(\[]([^\]\)]+)[\]\)])?(.*)/)
       name, children, remaining = result.captures if result
 
 
@@ -43,16 +43,39 @@ HEADER
     
     puts ('a_html: ' + a_html.inspect).debug if @debug
 
-    a = a_element.zip(a_html).map.with_index do |a,i|
+    rxmap = a_element.zip(a_html)
+    
+    a = rxmap.map.with_index do |a,i|
 
       out = []
       tag = a.shift
+      puts 'tag: ' + tag.inspect if @debug
+      
       field = i > 0 ? 'records/' + tag : tag
       out << "<xsl:template match='#{field}'>" + "\n"
       a.flatten!(1)
+      puts 'a: ' + a.inspect if @debug
+      
       if a.last.is_a? Array then
 
-        out << scan_e(a, tag) 
+        if @debug then
+          puts 'before scan_e a: ' + a.inspect
+          puts 'before scan_e rxmap: ' + rxmap.inspect
+          puts 'before scan_e rxmap[i+1]: ' + rxmap[i+1].inspect 
+        end
+        
+        if rxmap[i+1] and rxmap[i+1][1][0] =~ />/ then
+          
+          raw_body, rxtag = rxmap[i+1][1][0].split(/>/,2)
+          body = ["<%s>" % raw_body,"</%s>" % raw_body]
+          
+          puts 'body: ' + body.inspect if @debug
+          rxmap[i+1][1][0] = rxtag
+        else
+          body = []
+        end
+        
+        out << scan_e(a, tag, indent='  ', body) 
         out << "</xsl:template>\n\n"
       else
         out << "  <%s>\n" % a.first
@@ -85,25 +108,41 @@ HEADER
     
   end
 
-  def scan_e(a, prev_tag='', indent='  ')
+  def scan_e(a, prev_tag='', indent='  ', body=[])
 
     out = []
 
     unless a.first.is_a? Array then
       
-      tag = a.shift
+      raw_tags = a.shift
+      
+      tags = raw_tags.split('>')
+      start_tags = tags.map {|x| "<%s>" % x }.join
+      end_tags = tags.reverse.map {|x| "</%s>" % x }
+      puts 'end_tags: ' + end_tags.inspect if @debug
+      puts 'body: ' + body.inspect if @debug
+      
+      if body.any? then
+        end_tags.insert(-2, body[0])
+        end_tags[-1][0] = body[-1] #+ end_tags.last
+      end
+      puts '2. end_tags: ' + end_tags.inspect if @debug
 
-      out << indent + "<%s>\n" % tag
+      puts 'prev_tag: ' + prev_tag.inspect if @debug
+      puts '_a: ' + a.inspect if @debug
+      
+      out << indent + "%s\n" % start_tags
       out << indent + "  <xsl:apply-templates select='summary'/>\n"
+      out << indent + "%s\n" % end_tags[0..-2].join if end_tags.length > 1
       out << indent + "  <xsl:apply-templates select='records'/>\n"      
-      out << indent + "</%s>\n" % tag
+      out << indent + "%s\n" % end_tags[-1]
       out << "</xsl:template>\n\n"
       out << "<xsl:template match='%s/summary'>\n" % [prev_tag]
 
       a.flatten!(1)
       
       if a.last.is_a? Array then
-        out << scan_e(a, tag, indent + '  ') 
+        out << scan_e(a, tags.last, indent + '  ') 
       else
         out << indent + '  ' + a.first + "\n"
       end
