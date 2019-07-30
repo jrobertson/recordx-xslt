@@ -2,13 +2,18 @@
 
 # file: recordx-xslt.rb
 
+require 'c32'
+
+
 class RecordxXSLT
+  using ColouredText
   
   attr_accessor :schema, :xslt_schema
 
-  def initialize(options={})
-    o = {schema: '', xslt_schema: ''}.merge(options)
-    @schema, @xslt_schema = o.values
+  def initialize(schema: '', xslt_schema: '', debug: false)
+    
+    @schema, @xslt_schema, @debug = schema, xslt_schema, debug
+    
   end
 
   def to_xslt()
@@ -23,6 +28,7 @@ HEADER
     a_element = @schema.split('/').map{|x| x[/\w+/]}
     
     @xslt_schema = build_xslt_schema(@schema) if @xslt_schema.empty?
+    puts ('@xslt_schema: ' + @xslt_schema.inspect).debug if @debug
 
     a_html = @xslt_schema.split('/').map do |x|
 
@@ -34,6 +40,8 @@ HEADER
 
       [name, list]
     end
+    
+    puts ('a_html: ' + a_html.inspect).debug if @debug
 
     a = a_element.zip(a_html).map.with_index do |a,i|
 
@@ -87,6 +95,7 @@ HEADER
 
       out << indent + "<%s>\n" % tag
       out << indent + "  <xsl:apply-templates select='summary'/>\n"
+      out << indent + "  <xsl:apply-templates select='records'/>\n"      
       out << indent + "</%s>\n" % tag
       out << "</xsl:template>\n\n"
       out << "<xsl:template match='%s/summary'>\n" % [prev_tag]
@@ -101,21 +110,35 @@ HEADER
 
     else
       a.map do |target,src|
+        
+        if @debug then
+          puts 'target: ' + target.inspect
+          puts 'src: ' + src.inspect
+        end
 
         if src then
           
-          start_tag = target.gsub(/\s*\{[^\}]+\}/) do |attr| 
+          if target[0] == '@' then
+            
+            target.slice!(0,1) 
+            out << indent + "<xsl:attribute name='#{target}'>" + 
+                "<xsl:value-of select='#{src}'/></xsl:attribute>\n"
+          else
+            
+            start_tag = target.gsub(/\s*\{[^\}]+\}/) do |attr| 
 
-            ' ' + attr.scan(/(\w+[:=]\s*(?:\w+|["'][^"']+["'])),?\s*/)\
-            .map {|x| x.first.split(/\s*[:=]\s*/) }\
-            .map {|attr, val| "%s='%s'" % [attr,val.gsub(/^["']|["']$/,'')]}\
-            .join(', ')
+              ' ' + attr.scan(/(\w+[:=]\s*(?:\w+|["'][^"']+["'])),?\s*/)\
+              .map {|x| x.first.split(/\s*[:=]\s*/) }\
+              .map {|attr, val| "%s='%s'" % [attr,val.gsub(/^["']|["']$/,'')]}\
+              .join(', ')
+            end
+            
+            end_tag = target.gsub(/\s*{.*/,'')           
+
+            out << indent + "<%s><xsl:value-of select='%s'/></%s>\n" % 
+                                                  [start_tag,src,end_tag]
           end
           
-          end_tag = target.gsub(/\s*{.*/,'')           
-
-          out << indent + "<%s><xsl:value-of select='%s'/></%s>\n" % 
-                                                [start_tag,src,end_tag]
         else
           out << indent + "<%s></%s>\n" % ([target] * 2)
         end
