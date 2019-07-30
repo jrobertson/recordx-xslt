@@ -124,7 +124,8 @@ HEADER
       
       if body.any? then
         end_tags.insert(-2, body[0])
-        end_tags[-1][0] = body[-1] #+ end_tags.last
+        puts '2.end_tags: ' + end_tags.inspect if @debug
+        end_tags[-1] = body[-1] + end_tags[-1]
       end
       puts '2. end_tags: ' + end_tags.inspect if @debug
 

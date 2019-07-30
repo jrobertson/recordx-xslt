@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'recordx-xslt'
-  s.version = '0.2.1'
+  s.version = '0.2.2'
   s.summary = 'Transforms a RecordX type of schema with an XSLT schema ' +
       'mapping to generate an XSLT document.'
   s.authors = ['James Robertson']
